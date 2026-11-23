@@ -1,0 +1,213 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user account preferences and restriction state.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "notificationsEnabled": { "type": "boolean" },
+        "matchAlertsEnabled": { "type": "boolean" },
+        "resultAlertsEnabled": { "type": "boolean" },
+        "restricted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": ["userId", "displayName", "email", "notificationsEnabled", "matchAlertsEnabled", "resultAlertsEnabled", "restricted", "createdAt", "updatedAt"]
+    },
+    "TrackedPrediction": {
+      "title": "TrackedPrediction",
+      "description": "Immutable statistical prediction snapshot and post-match settlement record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "matchId": { "type": "string" },
+        "homeTeam": { "type": "string" },
+        "awayTeam": { "type": "string" },
+        "competition": { "type": "string" },
+        "country": { "type": "string" },
+        "kickoffEpochMs": { "type": "integer" },
+        "modelVersion": { "type": "string" },
+        "dataSources": { "type": "string" },
+        "homeXg": { "type": "number" },
+        "awayXg": { "type": "number" },
+        "probHomeWin": { "type": "integer" },
+        "probDraw": { "type": "integer" },
+        "probAwayWin": { "type": "integer" },
+        "probBttsYes": { "type": "integer" },
+        "probOver25": { "type": "integer" },
+        "topCorrectScore": { "type": "string" },
+        "topCorrectScoreProb": { "type": "integer" },
+        "confidenceScore": { "type": "integer" },
+        "qualityWarning": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "SETTLED", "VOID"] },
+        "actualHomeGoals": { "type": "integer" },
+        "actualAwayGoals": { "type": "integer" },
+        "settledResult1X2": { "type": "string" },
+        "settledBtts": { "type": "string" },
+        "settledOver25": { "type": "string" },
+        "outcomeCorrect": { "type": "boolean" },
+        "settledAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": ["userId", "matchId", "homeTeam", "awayTeam", "competition", "country", "kickoffEpochMs", "modelVersion", "dataSources", "homeXg", "awayXg", "probHomeWin", "probDraw", "probAwayWin", "probBttsYes", "probOver25", "topCorrectScore", "topCorrectScoreProb", "confidenceScore", "status", "createdAt", "updatedAt"]
+    },
+    "AppReview": {
+      "title": "AppReview",
+      "description": "User application review (one active review per account, no PII).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhotoUrl": { "type": "string" },
+        "rating": { "type": "integer" },
+        "reviewText": { "type": "string" },
+        "helpfulCount": { "type": "integer" },
+        "hidden": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "authorName", "rating", "reviewText", "helpfulCount", "hidden", "createdAt", "updatedAt"]
+    },
+    "DiscussionComment": {
+      "title": "DiscussionComment",
+      "description": "Public football discussion comment or reply linked to a team or fixture.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhotoUrl": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["TEAM", "FIXTURE", "GENERAL"] },
+        "targetId": { "type": "string" },
+        "targetLabel": { "type": "string" },
+        "parentCommentId": { "type": "string" },
+        "body": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "authorName", "targetType", "targetId", "targetLabel", "body", "hidden", "createdAt", "updatedAt"]
+    },
+    "OwnerFeedback": {
+      "title": "OwnerFeedback",
+      "description": "Private feedback message from a registered user to the application owner.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "category": { "type": "string", "enum": ["GENERAL", "BUG", "FEATURE", "DATA_CORRECTION", "OTHER"] },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["OPEN", "REPLIED", "RESOLVED"] },
+        "ownerReply": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "senderName", "category", "subject", "message", "status", "createdAt", "updatedAt"]
+    },
+    "ContentReport": {
+      "title": "ContentReport",
+      "description": "User report flagging inappropriate review or comment content.",
+      "type": "object",
+      "properties": {
+        "reporterId": { "type": "string" },
+        "targetCollection": { "type": "string", "enum": ["reviews", "comments"] },
+        "targetId": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "REVIEWED", "DISMISSED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterId", "targetCollection", "targetId", "reason", "status", "createdAt", "updatedAt"]
+    },
+    "ModelVersionRecord": {
+      "title": "ModelVersionRecord",
+      "description": "Statistical model version and validation metrics managed by owner.",
+      "type": "object",
+      "properties": {
+        "versionTag": { "type": "string" },
+        "dixonColesRho": { "type": "number" },
+        "homeAdvantage": { "type": "number" },
+        "h2hWeight": { "type": "number" },
+        "brierScore": { "type": "number" },
+        "accuracyPct": { "type": "number" },
+        "sampleSize": { "type": "integer" },
+        "active": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["versionTag", "dixonColesRho", "homeAdvantage", "h2hWeight", "brierScore", "accuracyPct", "sampleSize", "active", "notes", "createdAt", "updatedAt"]
+    },
+    "AdminAuditLog": {
+      "title": "AdminAuditLog",
+      "description": "Immutable owner security and moderation audit log entry.",
+      "type": "object",
+      "properties": {
+        "actorEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "targetPath": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["actorEmail", "action", "targetPath", "details", "createdAt"]
+    },
+    "AdminConfig": {
+      "title": "AdminConfig",
+      "description": "Owner-only security passcode hash, lockout state, and platform toggles.",
+      "type": "object",
+      "properties": {
+        "passcodeHash": { "type": "string" },
+        "passcodeSalt": { "type": "string" },
+        "failedAttempts": { "type": "integer" },
+        "lockedUntilEpochMs": { "type": "integer" },
+        "communityPostingOpen": { "type": "boolean" },
+        "autoRecalibrationEnabled": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["failedAttempts", "lockedUntilEpochMs", "communityPostingOpen", "autoRecalibrationEnabled", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user account profiles and notification preferences."
+    },
+    "/predictions/{predictionId}": {
+      "schema": { "$ref": "#/entities/TrackedPrediction" },
+      "description": "Immutable statistical prediction snapshots and settlement outcomes."
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/AppReview" },
+      "description": "Published application reviews (one per account)."
+    },
+    "/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/DiscussionComment" },
+      "description": "Community match and team discussion comments."
+    },
+    "/feedback/{feedbackId}": {
+      "schema": { "$ref": "#/entities/OwnerFeedback" },
+      "description": "Private feedback messages sent to the application owner."
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/ContentReport" },
+      "description": "User-submitted moderation reports."
+    },
+    "/model_versions/{versionId}": {
+      "schema": { "$ref": "#/entities/ModelVersionRecord" },
+      "description": "Statistical model version calibration history."
+    },
+    "/admin_audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AdminAuditLog" },
+      "description": "Immutable administrator security and moderation audit logs."
+    },
+    "/admin_config/{docId}": {
+      "schema": { "$ref": "#/entities/AdminConfig" },
+      "description": "Owner-only security and platform configuration."
+    }
+  }
+}

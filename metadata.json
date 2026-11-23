@@ -1,0 +1,6 @@
+{
+  "name": "All Football Predictions",
+  "description": "Football statistics, upcoming fixtures, deterministic probability predictions, live match centre, community reviews, and owner administration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">All Football Predictions</string>
+    <string name="app_tagline">Statistical Football Analysis &amp; Probability Forecasting</string>
+    <string name="action_continue_google">Continue with Google</string>
+    <string name="action_sign_out">Sign Out</string>
+    <string name="action_search">Search</string>
+    <string name="action_clear">Clear</string>
+    <string name="label_insufficient_data">Insufficient data</string>
+    <string name="msg_no_live_feed">No active live matches reported by connected public feeds right now.</string>
+    <string name="msg_prediction_disclaimer">Predictions are deterministic statistical probability estimates, not guarantees or financial advice.</string>
+    <string name="owner_admin_email">tumusiimeryanpro@gmail.com</string>
+</resources>

@@ -1,0 +1,399 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HARDENED HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+             'email_verified' in request.auth.token &&
+             request.auth.token.email_verified == true &&
+             'email' in request.auth.token &&
+             request.auth.token.email == 'tumusiimeryanpro@gmail.com';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string &&
+             id.size() >= 1 &&
+             id.size() <= 128 &&
+             id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isNotRestricted() {
+      return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.restricted == false;
+    }
+
+    // --- ENTITY VALIDATION BLUEPRINTS ---
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             data.notificationsEnabled is bool &&
+             data.matchAlertsEnabled is bool &&
+             data.resultAlertsEnabled is bool &&
+             data.restricted is bool;
+    }
+
+    function isValidPrediction(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.matchId is string && data.matchId.size() >= 1 && data.matchId.size() <= 128 &&
+             data.homeTeam is string && data.homeTeam.size() >= 1 && data.homeTeam.size() <= 100 &&
+             data.awayTeam is string && data.awayTeam.size() >= 1 && data.awayTeam.size() <= 100 &&
+             data.competition is string && data.competition.size() >= 1 && data.competition.size() <= 120 &&
+             data.country is string && data.country.size() >= 1 && data.country.size() <= 80 &&
+             data.kickoffEpochMs is int && data.kickoffEpochMs > 0 &&
+             data.modelVersion is string && data.modelVersion.size() >= 1 && data.modelVersion.size() <= 60 &&
+             data.dataSources is string && data.dataSources.size() >= 1 && data.dataSources.size() <= 200 &&
+             data.homeXg is number && data.homeXg >= 0.0 && data.homeXg <= 15.0 &&
+             data.awayXg is number && data.awayXg >= 0.0 && data.awayXg <= 15.0 &&
+             data.probHomeWin is int && data.probHomeWin >= 0 && data.probHomeWin <= 100 &&
+             data.probDraw is int && data.probDraw >= 0 && data.probDraw <= 100 &&
+             data.probAwayWin is int && data.probAwayWin >= 0 && data.probAwayWin <= 100 &&
+             data.probBttsYes is int && data.probBttsYes >= 0 && data.probBttsYes <= 100 &&
+             data.probOver25 is int && data.probOver25 >= 0 && data.probOver25 <= 100 &&
+             data.topCorrectScore is string && data.topCorrectScore.size() >= 3 && data.topCorrectScore.size() <= 12 &&
+             data.topCorrectScoreProb is int && data.topCorrectScoreProb >= 0 && data.topCorrectScoreProb <= 100 &&
+             data.confidenceScore is int && data.confidenceScore >= 0 && data.confidenceScore <= 100 &&
+             (!('qualityWarning' in data) || (data.qualityWarning is string && data.qualityWarning.size() <= 300)) &&
+             data.status in ['PENDING', 'SETTLED', 'VOID'] &&
+             (!('actualHomeGoals' in data) || (data.actualHomeGoals is int && data.actualHomeGoals >= 0 && data.actualHomeGoals <= 50)) &&
+             (!('actualAwayGoals' in data) || (data.actualAwayGoals is int && data.actualAwayGoals >= 0 && data.actualAwayGoals <= 50)) &&
+             (!('settledResult1X2' in data) || (data.settledResult1X2 is string && data.settledResult1X2.size() <= 20)) &&
+             (!('settledBtts' in data) || (data.settledBtts is string && data.settledBtts.size() <= 20)) &&
+             (!('settledOver25' in data) || (data.settledOver25 is string && data.settledOver25.size() <= 20)) &&
+             (!('outcomeCorrect' in data) || data.outcomeCorrect is bool) &&
+             (!('settledAt' in data) || (data.settledAt is timestamp && data.settledAt <= request.time));
+    }
+
+    function isValidReview(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
+             (!('authorPhotoUrl' in data) || (data.authorPhotoUrl is string && data.authorPhotoUrl.size() <= 500)) &&
+             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.reviewText is string && data.reviewText.size() >= 3 && data.reviewText.size() <= 1000 &&
+             data.helpfulCount is int && data.helpfulCount >= 0 &&
+             data.hidden is bool;
+    }
+
+    function isValidComment(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
+             (!('authorPhotoUrl' in data) || (data.authorPhotoUrl is string && data.authorPhotoUrl.size() <= 500)) &&
+             data.targetType in ['TEAM', 'FIXTURE', 'GENERAL'] &&
+             data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128 &&
+             data.targetLabel is string && data.targetLabel.size() >= 1 && data.targetLabel.size() <= 120 &&
+             (!('parentCommentId' in data) || (data.parentCommentId is string && data.parentCommentId.size() <= 128)) &&
+             data.body is string && data.body.size() >= 2 && data.body.size() <= 800 &&
+             data.hidden is bool;
+    }
+
+    function isValidFeedback(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.category in ['GENERAL', 'BUG', 'FEATURE', 'DATA_CORRECTION', 'OTHER'] &&
+             data.subject is string && data.subject.size() >= 3 && data.subject.size() <= 120 &&
+             data.message is string && data.message.size() >= 5 && data.message.size() <= 2000 &&
+             data.status in ['OPEN', 'REPLIED', 'RESOLVED'] &&
+             (!('ownerReply' in data) || (data.ownerReply is string && data.ownerReply.size() <= 2000));
+    }
+
+    function isValidReport(data) {
+      return data.reporterId is string && data.reporterId.size() >= 1 && data.reporterId.size() <= 128 &&
+             data.targetCollection in ['reviews', 'comments'] &&
+             data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128 &&
+             data.reason is string && data.reason.size() >= 3 && data.reason.size() <= 500 &&
+             data.status in ['PENDING', 'REVIEWED', 'DISMISSED'];
+    }
+
+    function isValidModelVersion(data) {
+      return data.versionTag is string && data.versionTag.size() >= 2 && data.versionTag.size() <= 60 &&
+             data.dixonColesRho is number && data.dixonColesRho >= -0.5 && data.dixonColesRho <= 0.5 &&
+             data.homeAdvantage is number && data.homeAdvantage >= 0.5 && data.homeAdvantage <= 2.0 &&
+             data.h2hWeight is number && data.h2hWeight >= 0.0 && data.h2hWeight <= 1.0 &&
+             data.brierScore is number && data.brierScore >= 0.0 && data.brierScore <= 2.0 &&
+             data.accuracyPct is number && data.accuracyPct >= 0.0 && data.accuracyPct <= 100.0 &&
+             data.sampleSize is int && data.sampleSize >= 0 &&
+             data.active is bool &&
+             data.notes is string && data.notes.size() <= 500;
+    }
+
+    function isValidAuditLog(data) {
+      return data.actorEmail is string && data.actorEmail.size() >= 3 && data.actorEmail.size() <= 160 &&
+             data.action is string && data.action.size() >= 2 && data.action.size() <= 100 &&
+             data.targetPath is string && data.targetPath.size() >= 1 && data.targetPath.size() <= 200 &&
+             data.details is string && data.details.size() <= 1000;
+    }
+
+    function isValidAdminConfig(data) {
+      return (!('passcodeHash' in data) || (data.passcodeHash is string && data.passcodeHash.size() <= 256)) &&
+             (!('passcodeSalt' in data) || (data.passcodeSalt is string && data.passcodeSalt.size() <= 128)) &&
+             data.failedAttempts is int && data.failedAttempts >= 0 && data.failedAttempts <= 100 &&
+             data.lockedUntilEpochMs is int && data.lockedUntilEpochMs >= 0 &&
+             data.communityPostingOpen is bool &&
+             data.autoRecalibrationEnabled is bool;
+    }
+
+    // --- COLLECTION RULES ---
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isValidId(userId) &&
+                       isOwner(userId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().restricted == false &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'email', 'notificationsEnabled', 'matchAlertsEnabled', 'resultAlertsEnabled', 'restricted', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'photoUrl', 'notificationsEnabled', 'matchAlertsEnabled', 'resultAlertsEnabled', 'restricted', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isValidId(userId) &&
+                       isSignedIn() &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time && (
+                         (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['restricted', 'updatedAt'])) ||
+                         (isOwner(userId) &&
+                          incoming().restricted == existing().restricted &&
+                          incoming().email == existing().email &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoUrl', 'notificationsEnabled', 'matchAlertsEnabled', 'resultAlertsEnabled', 'updatedAt']))
+                       );
+
+      allow delete: if isValidId(userId) && (isOwner(userId) || isAdmin());
+    }
+
+    match /predictions/{predictionId} {
+      allow get: if isValidId(predictionId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+
+      allow create: if isValidId(predictionId) &&
+                       isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'PENDING' &&
+                       incoming().keys().hasAll(['userId', 'matchId', 'homeTeam', 'awayTeam', 'competition', 'country', 'kickoffEpochMs', 'modelVersion', 'dataSources', 'homeXg', 'awayXg', 'probHomeWin', 'probDraw', 'probAwayWin', 'probBttsYes', 'probOver25', 'topCorrectScore', 'topCorrectScoreProb', 'confidenceScore', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'matchId', 'homeTeam', 'awayTeam', 'competition', 'country', 'kickoffEpochMs', 'modelVersion', 'dataSources', 'homeXg', 'awayXg', 'probHomeWin', 'probDraw', 'probAwayWin', 'probBttsYes', 'probOver25', 'topCorrectScore', 'topCorrectScoreProb', 'confidenceScore', 'qualityWarning', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidPrediction(incoming());
+
+      allow update: if isValidId(predictionId) &&
+                       isSignedIn() &&
+                       isValidPrediction(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().matchId == existing().matchId &&
+                       incoming().modelVersion == existing().modelVersion &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time && (
+                         isAdmin() ||
+                         (existing().userId == request.auth.uid &&
+                          existing().status == 'PENDING' &&
+                          incoming().status in ['SETTLED', 'VOID'] &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'actualHomeGoals', 'actualAwayGoals', 'settledResult1X2', 'settledBtts', 'settledOver25', 'outcomeCorrect', 'settledAt', 'updatedAt']))
+                       );
+
+      allow delete: if isValidId(predictionId) && isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow get: if isValidId(reviewId) && isSignedIn() && (existing().hidden == false || existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().hidden == false || existing().userId == request.auth.uid || isAdmin());
+
+      allow create: if isValidId(reviewId) &&
+                       isSignedIn() &&
+                       reviewId == request.auth.uid &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().hidden == false &&
+                       incoming().helpfulCount == 0 &&
+                       incoming().keys().hasAll(['userId', 'authorName', 'rating', 'reviewText', 'helpfulCount', 'hidden', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'authorName', 'authorPhotoUrl', 'rating', 'reviewText', 'helpfulCount', 'hidden', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidReview(incoming()) &&
+                       isNotRestricted();
+
+      allow update: if isValidId(reviewId) &&
+                       isSignedIn() &&
+                       isValidReview(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time && (
+                         isAdmin() ||
+                         (existing().userId == request.auth.uid &&
+                          isNotRestricted() &&
+                          incoming().hidden == existing().hidden &&
+                          incoming().helpfulCount == existing().helpfulCount &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['authorName', 'authorPhotoUrl', 'rating', 'reviewText', 'updatedAt'])) ||
+                         (isNotRestricted() &&
+                          incoming().helpfulCount == existing().helpfulCount + 1 &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['helpfulCount', 'updatedAt']))
+                       );
+
+      allow delete: if isValidId(reviewId) && ((isSignedIn() && existing().userId == request.auth.uid) || isAdmin());
+    }
+
+    match /comments/{commentId} {
+      allow get: if isValidId(commentId) && isSignedIn() && (existing().hidden == false || existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().hidden == false || existing().userId == request.auth.uid || isAdmin());
+
+      allow create: if isValidId(commentId) &&
+                       isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().hidden == false &&
+                       incoming().keys().hasAll(['userId', 'authorName', 'targetType', 'targetId', 'targetLabel', 'body', 'hidden', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'authorName', 'authorPhotoUrl', 'targetType', 'targetId', 'targetLabel', 'parentCommentId', 'body', 'hidden', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidComment(incoming()) &&
+                       isNotRestricted();
+
+      allow update: if isValidId(commentId) &&
+                       isSignedIn() &&
+                       isValidComment(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time && (
+                         isAdmin() ||
+                         (existing().userId == request.auth.uid &&
+                          isNotRestricted() &&
+                          incoming().hidden == existing().hidden &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['body', 'updatedAt']))
+                       );
+
+      allow delete: if isValidId(commentId) && ((isSignedIn() && existing().userId == request.auth.uid) || isAdmin());
+    }
+
+    match /feedback/{feedbackId} {
+      allow get: if isValidId(feedbackId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+
+      allow create: if isValidId(feedbackId) &&
+                       isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'OPEN' &&
+                       incoming().keys().hasAll(['userId', 'senderName', 'category', 'subject', 'message', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'senderName', 'category', 'subject', 'message', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidFeedback(incoming()) &&
+                       isNotRestricted();
+
+      allow update: if isValidId(feedbackId) &&
+                       isAdmin() &&
+                       isValidFeedback(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'ownerReply', 'updatedAt']);
+
+      allow delete: if isValidId(feedbackId) && ((isSignedIn() && existing().userId == request.auth.uid) || isAdmin());
+    }
+
+    match /reports/{reportId} {
+      allow get: if isValidId(reportId) && isSignedIn() && (existing().reporterId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().reporterId == request.auth.uid || isAdmin());
+
+      allow create: if isValidId(reportId) &&
+                       isSignedIn() &&
+                       incoming().reporterId == request.auth.uid &&
+                       incoming().status == 'PENDING' &&
+                       incoming().keys().hasAll(['reporterId', 'targetCollection', 'targetId', 'reason', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['reporterId', 'targetCollection', 'targetId', 'reason', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidReport(incoming()) &&
+                       isNotRestricted();
+
+      allow update: if isValidId(reportId) &&
+                       isAdmin() &&
+                       isValidReport(incoming()) &&
+                       incoming().reporterId == existing().reporterId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+
+      allow delete: if isValidId(reportId) && isAdmin();
+    }
+
+    match /model_versions/{versionId} {
+      allow get: if isValidId(versionId) && isSignedIn();
+      allow list: if isSignedIn();
+
+      allow create: if isValidId(versionId) &&
+                       isAdmin() &&
+                       incoming().keys().hasAll(['versionTag', 'dixonColesRho', 'homeAdvantage', 'h2hWeight', 'brierScore', 'accuracyPct', 'sampleSize', 'active', 'notes', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['versionTag', 'dixonColesRho', 'homeAdvantage', 'h2hWeight', 'brierScore', 'accuracyPct', 'sampleSize', 'active', 'notes', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidModelVersion(incoming());
+
+      allow update: if isValidId(versionId) &&
+                       isAdmin() &&
+                       isValidModelVersion(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['active', 'brierScore', 'accuracyPct', 'sampleSize', 'notes', 'updatedAt']);
+
+      allow delete: if isValidId(versionId) && isAdmin();
+    }
+
+    match /admin_audit_logs/{logId} {
+      allow get: if isValidId(logId) && isAdmin();
+      allow list: if isAdmin();
+
+      allow create: if isValidId(logId) &&
+                       isAdmin() &&
+                       incoming().actorEmail == request.auth.token.email &&
+                       incoming().keys().hasAll(['actorEmail', 'action', 'targetPath', 'details', 'createdAt']) &&
+                       incoming().keys().hasOnly(['actorEmail', 'action', 'targetPath', 'details', 'createdAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidAuditLog(incoming());
+
+      allow update, delete: if false;
+    }
+
+    match /admin_config/{docId} {
+      allow get: if isValidId(docId) && isAdmin();
+      allow list: if isAdmin();
+
+      allow create: if isValidId(docId) &&
+                       isAdmin() &&
+                       incoming().keys().hasAll(['failedAttempts', 'lockedUntilEpochMs', 'communityPostingOpen', 'autoRecalibrationEnabled', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['passcodeHash', 'passcodeSalt', 'failedAttempts', 'lockedUntilEpochMs', 'communityPostingOpen', 'autoRecalibrationEnabled', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidAdminConfig(incoming());
+
+      allow update: if isValidId(docId) &&
+                       isAdmin() &&
+                       isValidAdminConfig(incoming()) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['passcodeHash', 'passcodeSalt', 'failedAttempts', 'lockedUntilEpochMs', 'communityPostingOpen', 'autoRecalibrationEnabled', 'updatedAt']);
+
+      allow delete: if false;
+    }
+  }
+}
